@@ -743,10 +743,8 @@ function init() {
   if (savedId) {
     state.userId = savedId;
     loadData();
-  } else {
-    // aplica tema default (girl) pro onboarding — ele muda ao escolher o gênero
-    applyTheme('girl');
   }
+  // senão: fica no tema neutro (theme-onboard já está no <body>)
 }
 
 init();
