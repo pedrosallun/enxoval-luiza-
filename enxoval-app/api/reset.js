@@ -27,12 +27,17 @@ export default async function handler(req, res) {
     await supabase.from('items').delete().eq('is_custom', true).eq('user_id', userId);
     // Zera bought/checked dos itens padrão deste usuário
     await supabase.from('items').update({ bought: 0, checked: false }).eq('user_id', userId);
-    // Reseta as preferências
-    await supabase.from('preferences').upsert({
-      user_id: userId,
-      filter: 'all',
-      collapsed: {}
-    }, { onConflict: 'user_id' });
+    // Reseta as preferências (UPDATE primeiro; INSERT se não existir)
+    const { data: updated } = await supabase
+      .from('preferences')
+      .update({ filter: 'all', collapsed: {} })
+      .eq('user_id', userId)
+      .select();
+    if (!updated || updated.length === 0) {
+      await supabase.from('preferences').insert({
+        user_id: userId, filter: 'all', collapsed: {}
+      });
+    }
 
     return res.status(200).json({ success: true });
   } catch (error) {

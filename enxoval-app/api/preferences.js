@@ -24,14 +24,30 @@ export default async function handler(req, res) {
       if (req.body.filter !== undefined) updates.filter = req.body.filter;
       if (req.body.collapsed !== undefined) updates.collapsed = req.body.collapsed;
 
-      // upsert — caso a linha ainda não exista
-      const { data, error } = await supabase
+      // 1. Tenta UPDATE primeiro
+      const { data: updated, error: updateErr } = await supabase
         .from('preferences')
-        .upsert({ user_id: userId, ...updates }, { onConflict: 'user_id' })
+        .update(updates)
+        .eq('user_id', userId)
+        .select();
+      if (updateErr) throw updateErr;
+
+      if (updated && updated.length > 0) {
+        return res.status(200).json(updated[0]);
+      }
+
+      // 2. Se não existia, faz INSERT
+      const { data: inserted, error: insertErr } = await supabase
+        .from('preferences')
+        .insert({
+          user_id: userId,
+          filter: updates.filter ?? 'all',
+          collapsed: updates.collapsed ?? {},
+        })
         .select()
         .single();
-      if (error) throw error;
-      return res.status(200).json(data);
+      if (insertErr) throw insertErr;
+      return res.status(200).json(inserted);
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
