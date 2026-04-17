@@ -155,21 +155,20 @@ function getStatus(item) {
 // ============================================================
 function applyTheme(gender) {
   const override = localStorage.getItem(LS_THEME);
-  const t = override || (gender === 'boy' ? 'theme-boy' : gender === 'neutral' ? 'theme-neutral' : 'theme-girl');
+  const t = override || (gender === 'boy' ? 'theme-boy' : 'theme-girl');
   document.body.className = t;
   // ajusta meta theme-color p/ status bar mobile
   const meta = document.getElementById('meta-theme');
-  const themeColors = { 'theme-girl': '#FCE3EC', 'theme-boy': '#DBE9F7', 'theme-neutral': '#E3ECDB' };
+  const themeColors = { 'theme-girl': '#FCE3EC', 'theme-boy': '#DBE9F7' };
   if (meta) meta.setAttribute('content', themeColors[t] || '#FCE3EC');
 }
 
 function cycleTheme() {
   const cur = document.body.classList[0];
-  const next = cur === 'theme-girl' ? 'theme-boy' : cur === 'theme-boy' ? 'theme-neutral' : 'theme-girl';
+  const next = cur === 'theme-girl' ? 'theme-boy' : 'theme-girl';
   localStorage.setItem(LS_THEME, next);
   document.body.className = next;
-  applyTheme(state.user?.gender);
-  showToast(next === 'theme-girl' ? 'Tema rosa 💕' : next === 'theme-boy' ? 'Tema azul 💙' : 'Tema neutro 🌿');
+  showToast(next === 'theme-girl' ? 'Tema rosa 💕' : 'Tema azul 💙');
 }
 
 // ============================================================
@@ -333,8 +332,8 @@ function renderHeader() {
   if (!state.user) return;
   const babyName = state.user.baby_name || 'do bebê';
   const gender = state.user.gender;
-  const genderLabel = gender === 'boy' ? 'Menino' : gender === 'girl' ? 'Menina' : 'Surpresa';
-  const genderEmoji = gender === 'boy' ? '👦' : gender === 'girl' ? '👧' : '🌿';
+  const genderLabel = gender === 'boy' ? 'Menino' : 'Menina';
+  const genderEmoji = gender === 'boy' ? '👦' : '👧';
 
   document.getElementById('hero-baby-name').textContent = `de ${babyName}`;
   document.getElementById('badge-gender').textContent = `${genderEmoji} ${genderLabel}`;
@@ -539,7 +538,7 @@ function attachOnboardListeners() {
       localStorage.setItem(LS_USER_ID, result.user.id);
 
       document.getElementById('onboard-summary').innerHTML =
-        `<strong>${escapeHtml(result.user.baby_name)}</strong> · ${result.itemsCreated} itens criados em ${state.onboard.gender === 'boy' ? 'versão masculina 💙' : state.onboard.gender === 'girl' ? 'versão feminina 💕' : 'versão neutra 🌿'}`;
+        `<strong>${escapeHtml(result.user.baby_name)}</strong> · ${result.itemsCreated} itens criados em ${state.onboard.gender === 'boy' ? 'versão masculina 💙' : 'versão feminina 💕'}`;
       document.getElementById('out-user-code').value = result.user.id;
       showOnboardStep(4);
     } catch (err) {

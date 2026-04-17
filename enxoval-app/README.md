@@ -1,6 +1,6 @@
 # 👶 Enxoval · Controle de Compras (v2)
 
-Sistema multi-usuário para controlar compras de enxoval de bebê. Cada conta cria automaticamente a lista de ~110 itens, adaptada ao gênero escolhido (menino 💙, menina 💕 ou surpresa 🌿), e sincroniza na nuvem entre dispositivos.
+Sistema multi-usuário para controlar compras de enxoval de bebê. Cada conta cria automaticamente a lista de ~110 itens, adaptada ao gênero escolhido (menino 💙 ou menina 💕), e sincroniza na nuvem entre dispositivos.
 
 Originalmente criado para a **Luiza** — generalizado na v2 para qualquer bebê, com versão masculina, feminina e neutra.
 
@@ -16,7 +16,7 @@ Originalmente criado para a **Luiza** — generalizado na v2 para qualquer bebê
 - 🆕 **Sistema de contas** — cada bebê tem sua própria lista
 - 🆕 **Onboarding em 2 steps** — nome do bebê + escolha de gênero
 - 🆕 **Lista automática** — ao criar a conta, gera ~110 itens baseados no gênero
-- 🆕 **3 temas visuais** — rosa/feminino, azul/masculino, verde/neutro
+- 🆕 **2 temas visuais** — rosa/feminino, azul/masculino
 - 🆕 **Itens por categoria** — agrupados dentro de cada tamanho (Body, Macacão, etc.)
 - 🆕 **Menu lateral** — com export CSV, reset, logout e troca de tema
 - 🆕 **Código de acesso** — login em outro aparelho via código `u_xxxxxxxxx`
@@ -46,14 +46,14 @@ enxoval-app/
 
 ## 🧭 Versões masculina vs feminina
 
-| Categoria | Feminino 💕 | Masculino 💙 | Neutro 🌿 |
-|---|---|---|---|
-| Parte de cima | Blusinha, camiseta, bata | Camiseta, polo, camisa social | Camiseta |
-| Parte de baixo | Shorts, saia, jardineira | Bermuda, jogger, jardineira | Calça / shorts |
-| Vestidos | 3+ por tamanho | — | — |
-| Acessórios | Meia-calça, lacinhos | Suspensório, gravata borboleta | Neutros |
-| Conjunto especial | — | Conjunto esportivo | — |
-| **Itens neutros comuns** | bodies, macacões, pijamas, meias, sapatinhos, casaco, jaqueta, gorrinho, chapéu — **para todos** | | |
+| Categoria | Feminino 💕 | Masculino 💙 |
+|---|---|---|
+| Parte de cima | Blusinha, camiseta, bata | Camiseta, polo, camisa social |
+| Parte de baixo | Shorts, saia, jardineira | Bermuda, jogger, jardineira |
+| Vestidos | 3+ por tamanho | — |
+| Acessórios | Meia-calça, lacinhos | Suspensório, gravata borboleta |
+| Conjunto especial | — | Conjunto esportivo |
+| **Itens em comum (aparecem nos dois)** | bodies, macacões, pijamas, meias, sapatinhos, casaco, jaqueta, gorrinho, chapéu | |
 
 ## 🚀 Passo a passo do deploy
 
@@ -116,7 +116,7 @@ Se quiser tornar mais seguro no futuro: adicionar email+senha usando Supabase Au
 
 - ✅ **Onboarding** em 2 steps (nome + gênero)
 - ✅ **Lista automática** de ~110 itens por conta, baseada em template
-- ✅ **3 temas visuais** com tipografia elegante (Inter + Fraunces)
+- ✅ **2 temas visuais** com tipografia elegante (Inter + Fraunces)
 - ✅ **Categorização** de itens dentro de cada tamanho
 - ✅ Checkbox pra marcar compras
 - ✅ Contador de peças + barra de progresso (geral e por tamanho)

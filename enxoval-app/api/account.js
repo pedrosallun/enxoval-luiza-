@@ -30,8 +30,8 @@ export default async function handler(req, res) {
       if (!baby_name || !gender) {
         return res.status(400).json({ error: 'baby_name e gender são obrigatórios' });
       }
-      if (!['boy', 'girl', 'neutral'].includes(gender)) {
-        return res.status(400).json({ error: "gender deve ser 'boy', 'girl' ou 'neutral'" });
+      if (!['boy', 'girl'].includes(gender)) {
+        return res.status(400).json({ error: "gender deve ser 'boy' ou 'girl'" });
       }
 
       const userId = genUserId();
@@ -56,16 +56,12 @@ export default async function handler(req, res) {
         collapsed: {},
       });
 
-      // 3. Busca templates aplicáveis (neutros + do gênero escolhido)
-      // Se 'neutral', usa só os neutros.
-      const genderFilter = gender === 'neutral'
-        ? ['neutral']
-        : ['neutral', gender];
-
+      // 3. Busca templates aplicáveis (neutros comuns + do gênero escolhido)
+      // 'neutral' aqui é a categoria de itens comuns aos dois gêneros (bodies, macacões, etc.)
       const { data: templates, error: tplErr } = await supabase
         .from('item_templates')
         .select('*')
-        .in('gender', genderFilter)
+        .in('gender', ['neutral', gender])
         .order('sort_order', { ascending: true });
       if (tplErr) throw tplErr;
 

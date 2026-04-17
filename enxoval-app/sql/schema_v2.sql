@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   baby_name TEXT NOT NULL,
   parent_name TEXT,
-  gender TEXT NOT NULL CHECK (gender IN ('boy','girl','neutral')),
+  gender TEXT NOT NULL CHECK (gender IN ('boy','girl')),
   theme TEXT DEFAULT 'auto',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

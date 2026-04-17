@@ -92,22 +92,6 @@
     --accent-bg-hero: radial-gradient(120% 120% at 100% 0%, #EFF6FC 0%, #DBE9F7 35%, #B6D0EB 100%);
     --accent-shadow: 0 10px 30px rgba(45,101,158,0.35);
   }
-  body.theme-neutral {
-    --accent-50:  #F2F5EF;
-    --accent-100: #E3ECDB;
-    --accent-200: #CAD9BD;
-    --accent-300: #9DB98B;
-    --accent-400: #7AA167;
-    --accent-500: #5A864A;
-    --accent-600: #426634;
-    --accent-700: #304B25;
-    --accent-800: #1F3116;
-    --accent-grad: linear-gradient(135deg,#F2F5EF 0%,#E3ECDB 40%,#CAD9BD 100%);
-    --accent-grad-strong: linear-gradient(135deg,#7AA167 0%,#426634 100%);
-    --accent-bg-hero: radial-gradient(120% 120% at 50% 0%, #F6F8F2 0%, #E3ECDB 35%, #CAD9BD 100%);
-    --accent-shadow: 0 10px 30px rgba(122,161,103,0.35);
-  }
-
   html, body { margin: 0; padding: 0; }
   body {
     font-family: var(--font-sans);
@@ -463,7 +447,7 @@
     outline: none; border-color: var(--accent-500);
     box-shadow: 0 0 0 4px var(--accent-50);
   }
-  .gender-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+  .gender-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 10px; }
   .gender-pick {
     background: var(--bg-secondary); border: 2px solid var(--border-light);
     border-radius: var(--radius-lg);
@@ -598,11 +582,6 @@
           <span class="gender-emoji">👦</span>
           <div class="gender-name">Menino</div>
           <div class="gender-desc">Azul · bermudas</div>
-        </button>
-        <button class="gender-pick" data-gender="neutral">
-          <span class="gender-emoji">🌿</span>
-          <div class="gender-name">Surpresa</div>
-          <div class="gender-desc">Neutro · unissex</div>
         </button>
       </div>
       <div class="onboard-actions">
