@@ -2,16 +2,25 @@
 'use strict';
 
 // ============================================================
+// CONSTANTES
+// ============================================================
+const LS_USER_ID = 'enxoval_user_id';
+const LS_THEME   = 'enxoval_theme_override';
+
+// ============================================================
 // ESTADO GLOBAL
 // ============================================================
 let state = {
+  userId: null,
+  user: null,
   sizes: [],
   items: [],
-  preferences: { filter: 'all', collapsed: {} }
+  preferences: { filter: 'all', collapsed: {} },
+  onboard: { step: 1, baby_name: '', parent_name: '', gender: null },
 };
 
 // ============================================================
-// ÍCONES SVG
+// ÍCONES
 // ============================================================
 const ICONS = {
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
@@ -22,9 +31,29 @@ const ICONS = {
 // ============================================================
 // API CLIENT
 // ============================================================
+function authHeaders() {
+  return state.userId ? { 'x-user-id': state.userId } : {};
+}
+
 const API = {
+  async createAccount(payload) {
+    const res = await fetch('/api/account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Falha ao criar conta');
+    return res.json();
+  },
+
+  async getAccount(id) {
+    const res = await fetch(`/api/account?id=${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error('Conta não encontrada');
+    return res.json();
+  },
+
   async fetchAll() {
-    const res = await fetch('/api/data');
+    const res = await fetch('/api/data', { headers: authHeaders() });
     if (!res.ok) throw new Error('Falha ao carregar dados');
     return res.json();
   },
@@ -32,8 +61,8 @@ const API = {
   async updateItem(id, updates) {
     const res = await fetch(`/api/items?id=${encodeURIComponent(id)}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(updates),
     });
     if (!res.ok) throw new Error('Falha ao atualizar item');
     return res.json();
@@ -42,8 +71,8 @@ const API = {
   async createItem(data) {
     const res = await fetch('/api/items', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Falha ao criar item');
     return res.json();
@@ -51,7 +80,8 @@ const API = {
 
   async deleteItem(id) {
     const res = await fetch(`/api/items?id=${encodeURIComponent(id)}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: authHeaders(),
     });
     if (!res.ok) throw new Error('Falha ao remover item');
     return res.json();
@@ -60,36 +90,31 @@ const API = {
   async updatePreferences(updates) {
     const res = await fetch('/api/preferences', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(updates),
     });
     if (!res.ok) throw new Error('Falha ao atualizar preferências');
     return res.json();
   },
 
   async reset() {
-    const res = await fetch('/api/reset', { method: 'POST' });
+    const res = await fetch('/api/reset', { method: 'POST', headers: authHeaders() });
     if (!res.ok) throw new Error('Falha ao resetar');
     return res.json();
   }
 };
 
 // ============================================================
-// UI HELPERS
+// HELPERS DE UI
 // ============================================================
 function setSyncStatus(status) {
   const dot = document.getElementById('save-dot');
   const text = document.getElementById('save-text');
+  if (!dot) return;
   dot.classList.remove('syncing', 'error');
-  if (status === 'syncing') {
-    dot.classList.add('syncing');
-    text.textContent = 'Sincronizando...';
-  } else if (status === 'error') {
-    dot.classList.add('error');
-    text.textContent = 'Erro de conexão';
-  } else {
-    text.textContent = 'Sincronizado';
-  }
+  if (status === 'syncing') { dot.classList.add('syncing'); text.textContent = 'Sincronizando...'; }
+  else if (status === 'error') { dot.classList.add('error'); text.textContent = 'Erro de conexão'; }
+  else text.textContent = 'Sincronizado';
 }
 
 function showToast(msg, isError = false) {
@@ -100,9 +125,10 @@ function showToast(msg, isError = false) {
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
-function showModal(title, message, onConfirm) {
+function showModal(title, message, onConfirm, confirmLabel = 'Confirmar') {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-message').textContent = message;
+  document.getElementById('modal-confirm').textContent = confirmLabel;
   const modal = document.getElementById('modal');
   modal.classList.add('show');
   const close = () => modal.classList.remove('show');
@@ -125,17 +151,34 @@ function getStatus(item) {
 }
 
 // ============================================================
+// TEMA
+// ============================================================
+function applyTheme(gender) {
+  const override = localStorage.getItem(LS_THEME);
+  const t = override || (gender === 'boy' ? 'theme-boy' : gender === 'neutral' ? 'theme-neutral' : 'theme-girl');
+  document.body.className = t;
+  // ajusta meta theme-color p/ status bar mobile
+  const meta = document.getElementById('meta-theme');
+  const themeColors = { 'theme-girl': '#FCE3EC', 'theme-boy': '#DBE9F7', 'theme-neutral': '#E3ECDB' };
+  if (meta) meta.setAttribute('content', themeColors[t] || '#FCE3EC');
+}
+
+function cycleTheme() {
+  const cur = document.body.classList[0];
+  const next = cur === 'theme-girl' ? 'theme-boy' : cur === 'theme-boy' ? 'theme-neutral' : 'theme-girl';
+  localStorage.setItem(LS_THEME, next);
+  document.body.className = next;
+  applyTheme(state.user?.gender);
+  showToast(next === 'theme-girl' ? 'Tema rosa 💕' : next === 'theme-boy' ? 'Tema azul 💙' : 'Tema neutro 🌿');
+}
+
+// ============================================================
 // OPTIMISTIC UPDATES
-// Atualiza a UI imediatamente, depois sincroniza com o backend.
-// Se falhar, reverte e mostra erro.
 // ============================================================
 async function optimisticUpdate(localChange, apiCall) {
-  // 1. Aplica a mudança local imediatamente
   localChange();
   renderAll();
   setSyncStatus('syncing');
-
-  // 2. Sincroniza com backend
   try {
     await apiCall();
     setSyncStatus('ok');
@@ -143,13 +186,12 @@ async function optimisticUpdate(localChange, apiCall) {
     console.error('Sync error:', err);
     setSyncStatus('error');
     showToast('Erro ao salvar. Recarregando...', true);
-    // 3. Se falhar, recarrega estado do servidor
     setTimeout(() => loadData(), 1500);
   }
 }
 
 // ============================================================
-// RENDERIZAÇÃO
+// RENDER
 // ============================================================
 function calcStats() {
   let totalTarget = 0, totalBought = 0, completeItems = 0;
@@ -173,15 +215,25 @@ function renderStats() {
     </div>
     <div class="stat">
       <div class="stat-label">Peças</div>
-      <div class="stat-value">${s.totalBought}<span style="font-size:13px;color:var(--text-secondary);font-weight:400;"> / ${s.totalTarget}</span></div>
+      <div class="stat-value">${s.totalBought}<small> / ${s.totalTarget}</small></div>
       <div class="stat-sub">${s.totalTarget - s.totalBought} faltando</div>
     </div>
     <div class="stat">
       <div class="stat-label">Itens</div>
-      <div class="stat-value">${s.completeItems}<span style="font-size:13px;color:var(--text-secondary);font-weight:400;"> / ${s.totalItems}</span></div>
+      <div class="stat-value">${s.completeItems}<small> / ${s.totalItems}</small></div>
       <div class="stat-sub">completos</div>
     </div>
   `;
+}
+
+function groupByCategory(items) {
+  const groups = {};
+  items.forEach(it => {
+    const cat = it.category || 'Outros';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(it);
+  });
+  return groups;
 }
 
 function renderSizes() {
@@ -227,33 +279,42 @@ function renderSizes() {
       if (filtered.length === 0) {
         html += '<div class="empty">Nenhum item neste filtro</div>';
       } else {
-        filtered.forEach(item => {
-          const status = getStatus(item);
-          const isComplete = status === 'complete';
-          const isOver = item.bought > item.target && item.target > 0;
-          html += `
-            <div class="item ${isComplete ? 'complete' : ''} ${isOver ? 'over' : ''}" data-item="${item.id}">
-              <button class="check ${isComplete ? 'checked' : ''}" data-action="check" data-id="${item.id}" aria-label="Marcar">${ICONS.check}</button>
-              <div class="item-body">
-                <div class="item-name ${isComplete ? 'complete' : ''}">${escapeHtml(item.name)}${item.is_custom ? '<span class="item-custom-tag">CUSTOM</span>' : ''}</div>
-                ${item.note ? `<div class="item-note">${escapeHtml(item.note)}</div>` : ''}
+        const groups = groupByCategory(filtered);
+        const catOrder = ['Macacão','Body','Parte de cima','Parte de baixo','Vestido','Conjunto','Casaco','Calçado','Acessório','Dormir','Especial','Lazer','Personalizado','Outros'];
+        const sortedCats = Object.keys(groups).sort((a,b) => {
+          const ai = catOrder.indexOf(a), bi = catOrder.indexOf(b);
+          return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+        });
+        sortedCats.forEach(cat => {
+          html += `<div class="category-heading">${escapeHtml(cat)}</div>`;
+          groups[cat].forEach(item => {
+            const status = getStatus(item);
+            const isComplete = status === 'complete';
+            const isOver = item.bought > item.target && item.target > 0;
+            html += `
+              <div class="item ${isComplete ? 'complete' : ''} ${isOver ? 'over' : ''}" data-item="${item.id}">
+                <button class="check ${isComplete ? 'checked' : ''}" data-action="check" data-id="${item.id}" aria-label="Marcar">${ICONS.check}</button>
+                <div class="item-body">
+                  <div class="item-name ${isComplete ? 'complete' : ''}">${escapeHtml(item.name)}${item.is_custom ? '<span class="item-custom-tag">MEU</span>' : ''}</div>
+                  ${item.note ? `<div class="item-note">${escapeHtml(item.note)}</div>` : ''}
+                </div>
+                <div class="qty-group">
+                  <button class="qty-btn" data-action="dec" data-id="${item.id}" aria-label="Diminuir">−</button>
+                  <input type="number" class="qty-input" value="${item.bought}" min="0" data-action="qty" data-id="${item.id}" inputmode="numeric">
+                  <button class="qty-btn" data-action="inc" data-id="${item.id}" aria-label="Aumentar">+</button>
+                </div>
+                <div class="qty-target">/ ${item.target}</div>
+                <div class="item-actions">
+                  <button class="icon-btn delete" data-action="delete" data-id="${item.id}" aria-label="Remover">${ICONS.trash}</button>
+                </div>
               </div>
-              <div class="qty-group">
-                <button class="qty-btn" data-action="dec" data-id="${item.id}" aria-label="Diminuir">−</button>
-                <input type="number" class="qty-input" value="${item.bought}" min="0" data-action="qty" data-id="${item.id}" inputmode="numeric">
-                <button class="qty-btn" data-action="inc" data-id="${item.id}" aria-label="Aumentar">+</button>
-              </div>
-              <div class="qty-target">/ ${item.target}</div>
-              <div class="item-actions">
-                <button class="icon-btn delete" data-action="delete" data-id="${item.id}" aria-label="Remover">${ICONS.trash}</button>
-              </div>
-            </div>
-          `;
+            `;
+          });
         });
       }
       html += `
         <div class="add-form">
-          <input type="text" placeholder="Adicionar item..." class="add-name" data-size="${size.id}" maxlength="100">
+          <input type="text" placeholder="Adicionar item personalizado..." class="add-name" data-size="${size.id}" maxlength="100">
           <input type="number" placeholder="Qtd" class="add-qty" data-size="${size.id}" min="1" value="1" inputmode="numeric">
           <button class="add-btn" data-size="${size.id}">+ Add</button>
         </div>
@@ -265,19 +326,36 @@ function renderSizes() {
     container.appendChild(card);
   });
 
-  attachEventListeners();
+  attachItemListeners();
+}
+
+function renderHeader() {
+  if (!state.user) return;
+  const babyName = state.user.baby_name || 'do bebê';
+  const gender = state.user.gender;
+  const genderLabel = gender === 'boy' ? 'Menino' : gender === 'girl' ? 'Menina' : 'Surpresa';
+  const genderEmoji = gender === 'boy' ? '👦' : gender === 'girl' ? '👧' : '🌿';
+
+  document.getElementById('hero-baby-name').textContent = `de ${babyName}`;
+  document.getElementById('badge-gender').textContent = `${genderEmoji} ${genderLabel}`;
+  document.getElementById('hero-sub').textContent = state.user.parent_name
+    ? `Lista organizada por ${escapeHtml(state.user.parent_name)} · Sincronizada na nuvem`
+    : 'Sua lista completa, sincronizada em qualquer dispositivo.';
+  document.getElementById('menu-name').textContent = babyName;
+  document.getElementById('menu-sub').textContent = `${genderLabel} · ${state.items.length} itens`;
+  document.title = `Enxoval · ${babyName}`;
 }
 
 function renderAll() {
+  renderHeader();
   renderStats();
   renderSizes();
 }
 
 // ============================================================
-// EVENT LISTENERS
+// LISTENERS DO APP
 // ============================================================
-function attachEventListeners() {
-  // Colapsar/expandir seções
+function attachItemListeners() {
   document.querySelectorAll('.size-header').forEach(h => {
     h.onclick = (e) => {
       if (e.target.closest('button, input')) return;
@@ -291,7 +369,6 @@ function attachEventListeners() {
     };
   });
 
-  // Check item
   document.querySelectorAll('[data-action="check"]').forEach(el => {
     el.onclick = (e) => {
       e.stopPropagation();
@@ -313,7 +390,6 @@ function attachEventListeners() {
     };
   });
 
-  // Incremento
   document.querySelectorAll('[data-action="inc"]').forEach(el => {
     el.onclick = (e) => {
       e.stopPropagation();
@@ -327,7 +403,6 @@ function attachEventListeners() {
     };
   });
 
-  // Decremento
   document.querySelectorAll('[data-action="dec"]').forEach(el => {
     el.onclick = (e) => {
       e.stopPropagation();
@@ -342,9 +417,8 @@ function attachEventListeners() {
     };
   });
 
-  // Input manual de quantidade
   document.querySelectorAll('[data-action="qty"]').forEach(el => {
-    el.onchange = (e) => {
+    el.onchange = () => {
       const item = state.items.find(i => i.id === el.dataset.id);
       if (!item) return;
       const newBought = Math.max(0, parseInt(el.value) || 0);
@@ -357,7 +431,6 @@ function attachEventListeners() {
     el.onclick = (e) => e.stopPropagation();
   });
 
-  // Delete
   document.querySelectorAll('[data-action="delete"]').forEach(el => {
     el.onclick = (e) => {
       e.stopPropagation();
@@ -372,12 +445,12 @@ function attachEventListeners() {
             () => API.deleteItem(el.dataset.id)
           );
           showToast('Item removido');
-        }
+        },
+        'Remover'
       );
     };
   });
 
-  // Adicionar item custom
   document.querySelectorAll('.add-btn').forEach(btn => {
     btn.onclick = async (e) => {
       e.stopPropagation();
@@ -392,6 +465,8 @@ function attachEventListeners() {
       try {
         const newItem = await API.createItem({ name, size_id: sid, target: Math.max(1, qty) });
         state.items.push(newItem);
+        nameInp.value = '';
+        qtyInp.value = 1;
         renderAll();
         setSyncStatus('ok');
         showToast(`"${name}" adicionado!`);
@@ -413,101 +488,273 @@ function attachEventListeners() {
   });
 }
 
-// Filtros
-document.querySelectorAll('.filter').forEach(f => {
-  f.onclick = () => {
-    document.querySelectorAll('.filter').forEach(x => x.classList.remove('active'));
-    f.classList.add('active');
-    const newFilter = f.dataset.filter;
-    optimisticUpdate(
-      () => { state.preferences.filter = newFilter; },
-      () => API.updatePreferences({ filter: newFilter })
+// ============================================================
+// ONBOARDING
+// ============================================================
+function showOnboardStep(n) {
+  state.onboard.step = n;
+  document.querySelectorAll('.onboard-step').forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.step) === n);
+  });
+}
+
+function attachOnboardListeners() {
+  document.getElementById('btn-step1-next').onclick = () => {
+    const baby = document.getElementById('in-baby-name').value.trim();
+    const parent = document.getElementById('in-parent-name').value.trim();
+    if (!baby) {
+      document.getElementById('in-baby-name').focus();
+      showToast('Preenche o nome do bebê 👶', true);
+      return;
+    }
+    state.onboard.baby_name = baby;
+    state.onboard.parent_name = parent;
+    showOnboardStep(2);
+  };
+
+  document.getElementById('btn-step2-back').onclick = () => showOnboardStep(1);
+
+  document.querySelectorAll('.gender-pick').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.gender-pick').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      state.onboard.gender = btn.dataset.gender;
+      document.getElementById('btn-step2-next').disabled = false;
+      // preview do tema
+      applyTheme(state.onboard.gender);
+    };
+  });
+
+  document.getElementById('btn-step2-next').onclick = async () => {
+    if (!state.onboard.gender) return;
+    showOnboardStep(3);
+    try {
+      const result = await API.createAccount({
+        baby_name: state.onboard.baby_name,
+        parent_name: state.onboard.parent_name || null,
+        gender: state.onboard.gender,
+      });
+      state.userId = result.user.id;
+      state.user = result.user;
+      localStorage.setItem(LS_USER_ID, result.user.id);
+
+      document.getElementById('onboard-summary').innerHTML =
+        `<strong>${escapeHtml(result.user.baby_name)}</strong> · ${result.itemsCreated} itens criados em ${state.onboard.gender === 'boy' ? 'versão masculina 💙' : state.onboard.gender === 'girl' ? 'versão feminina 💕' : 'versão neutra 🌿'}`;
+      document.getElementById('out-user-code').value = result.user.id;
+      showOnboardStep(4);
+    } catch (err) {
+      console.error(err);
+      showToast('Erro: ' + err.message, true);
+      showOnboardStep(2);
+    }
+  };
+
+  document.getElementById('btn-step4-go').onclick = () => {
+    document.getElementById('onboard').classList.add('hidden');
+    loadData();
+  };
+
+  document.getElementById('link-existing').onclick = () => showOnboardStep(5);
+  document.getElementById('btn-step5-back').onclick = () => showOnboardStep(1);
+  document.getElementById('btn-step5-next').onclick = async () => {
+    const code = document.getElementById('in-user-code').value.trim();
+    if (!code) return;
+    try {
+      const user = await API.getAccount(code);
+      state.userId = user.id;
+      state.user = user;
+      localStorage.setItem(LS_USER_ID, user.id);
+      document.getElementById('onboard').classList.add('hidden');
+      loadData();
+    } catch (err) {
+      showToast('Código inválido', true);
+    }
+  };
+
+  document.getElementById('out-user-code').onclick = (e) => {
+    e.target.select();
+    navigator.clipboard?.writeText(e.target.value);
+    showToast('Código copiado 📋');
+  };
+}
+
+// ============================================================
+// MENU DRAWER
+// ============================================================
+function attachMenuListeners() {
+  const drawer = document.getElementById('menu-drawer');
+  const overlay = document.getElementById('menu-overlay');
+  const open = () => { drawer.classList.add('open'); overlay.classList.add('open'); };
+  const close = () => { drawer.classList.remove('open'); overlay.classList.remove('open'); };
+
+  document.getElementById('open-menu').onclick = open;
+  overlay.onclick = close;
+
+  document.getElementById('menu-export').onclick = () => {
+    let csv = '\uFEFF';
+    csv += 'Tamanho,Categoria,Item,Comprado,Meta,Status,Observação\n';
+    state.sizes.forEach(size => {
+      state.items.filter(i => i.size_id === size.id).forEach(item => {
+        const st = getStatus(item);
+        const stLabel = st === 'complete' ? 'Completo' : st === 'partial' ? 'Em andamento' : 'Faltando';
+        const safe = (s) => `"${(s || '').toString().replace(/"/g, '""')}"`;
+        csv += `${safe(size.name + ' - ' + size.tam)},${safe(item.category)},${safe(item.name)},${item.bought},${item.target},${safe(stLabel)},${safe(item.note || '')}\n`;
+      });
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `enxoval-${state.user?.baby_name || 'lista'}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    close();
+    showToast('CSV exportado 📥');
+  };
+
+  document.getElementById('menu-share-code').onclick = () => {
+    close();
+    showModal(
+      'Código de acesso',
+      `Use este código pra acessar seu enxoval em outro aparelho:\n\n${state.userId}`,
+      () => {
+        navigator.clipboard?.writeText(state.userId);
+        showToast('Código copiado 📋');
+      },
+      'Copiar'
     );
   };
-});
 
-// Export CSV
-document.getElementById('export-btn').onclick = () => {
-  let csv = '\uFEFF';
-  csv += 'Tamanho,Item,Comprado,Meta,Status,Observação\n';
-  state.sizes.forEach(size => {
-    state.items.filter(i => i.size_id === size.id).forEach(item => {
-      const st = getStatus(item);
-      const stLabel = st === 'complete' ? 'Completo' : st === 'partial' ? 'Em andamento' : 'Faltando';
-      const safe = (s) => `"${(s || '').toString().replace(/"/g, '""')}"`;
-      csv += `${safe(size.name + ' - ' + size.tam)},${safe(item.name)},${item.bought},${item.target},${safe(stLabel)},${safe(item.note || '')}\n`;
-    });
-  });
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'enxoval-luiza.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 100);
-  showToast('CSV exportado! 📥');
-};
+  document.getElementById('menu-switch-theme').onclick = () => { cycleTheme(); close(); };
 
-// Reset
-document.getElementById('reset-btn').onclick = () => {
-  showModal(
-    'Resetar tudo?',
-    'Isto vai apagar TODO o progresso e itens personalizados do banco de dados. Esta ação não pode ser desfeita.',
-    async () => {
-      setSyncStatus('syncing');
-      try {
-        await API.reset();
-        await loadData();
-        showToast('Lista resetada');
-        setSyncStatus('ok');
-      } catch (err) {
-        setSyncStatus('error');
-        showToast('Erro ao resetar', true);
-      }
-    }
-  );
-};
+  document.getElementById('menu-reset').onclick = () => {
+    close();
+    showModal(
+      'Resetar progresso?',
+      'Isso vai zerar todos os "comprados" e remover itens personalizados. Os itens padrão continuam.',
+      async () => {
+        setSyncStatus('syncing');
+        try {
+          await API.reset();
+          await loadData();
+          showToast('Lista zerada');
+        } catch (err) {
+          setSyncStatus('error');
+          showToast('Erro ao resetar', true);
+        }
+      },
+      'Resetar'
+    );
+  };
+
+  document.getElementById('menu-logout').onclick = () => {
+    close();
+    showModal(
+      'Sair da conta?',
+      'Você vai voltar à tela inicial. Seu enxoval continua salvo — entre de novo com o código de acesso.',
+      () => {
+        localStorage.removeItem(LS_USER_ID);
+        localStorage.removeItem(LS_THEME);
+        location.reload();
+      },
+      'Sair'
+    );
+  };
+}
 
 // ============================================================
-// INICIALIZAÇÃO
+// FILTROS
+// ============================================================
+function attachFilterListeners() {
+  document.querySelectorAll('.filter').forEach(f => {
+    f.onclick = () => {
+      document.querySelectorAll('.filter').forEach(x => x.classList.remove('active'));
+      f.classList.add('active');
+      const newFilter = f.dataset.filter;
+      optimisticUpdate(
+        () => { state.preferences.filter = newFilter; },
+        () => API.updatePreferences({ filter: newFilter })
+      );
+    };
+  });
+}
+
+// ============================================================
+// CARREGAR DADOS
 // ============================================================
 async function loadData() {
+  const onboard = document.getElementById('onboard');
+  const loading = document.getElementById('loading-screen');
+  const main = document.getElementById('app-main');
+
+  onboard.classList.add('hidden');
+  loading.classList.remove('hidden');
+  main.style.display = 'none';
+
   try {
     const data = await API.fetchAll();
+    state.user = data.user;
     state.sizes = data.sizes;
     state.items = data.items;
     state.preferences = data.preferences || { filter: 'all', collapsed: {} };
 
-    // Aplicar filtro ativo nos botões
+    applyTheme(state.user.gender);
+
     document.querySelectorAll('.filter').forEach(f => {
       f.classList.toggle('active', f.dataset.filter === state.preferences.filter);
     });
 
     renderAll();
-    document.getElementById('loading-screen').classList.add('hidden');
+    main.style.display = 'block';
+    loading.classList.add('hidden');
     setSyncStatus('ok');
   } catch (err) {
     console.error('Load error:', err);
+    // Se o user_id salvo não existir mais, volta pro onboard
+    if (String(err.message).toLowerCase().includes('não encontrado') ||
+        String(err.message).toLowerCase().includes('not found')) {
+      localStorage.removeItem(LS_USER_ID);
+      state.userId = null;
+      loading.classList.add('hidden');
+      onboard.classList.remove('hidden');
+      return;
+    }
     setSyncStatus('error');
-    document.getElementById('loading-screen').innerHTML = `
+    loading.innerHTML = `
       <div class="loading-content">
         <p style="color: var(--red-strong); font-size: 15px; margin-bottom: 12px;">⚠️ Erro ao conectar</p>
-        <p style="font-size: 13px; color: var(--text-secondary);">Verifique se o Supabase está configurado.</p>
+        <p style="font-size: 13px; color: var(--text-secondary);">Verifique sua conexão e tente novamente.</p>
         <button class="btn" onclick="location.reload()" style="margin-top: 16px;">Tentar novamente</button>
       </div>
     `;
   }
 }
 
-// Inicializar
-loadData();
+// ============================================================
+// INICIALIZAÇÃO
+// ============================================================
+function init() {
+  attachOnboardListeners();
+  attachMenuListeners();
+  attachFilterListeners();
 
-// Recarregar quando a janela volta do background
-// Importante pra quando você tem o app aberto em dois dispositivos (você e Luigi)
+  const savedId = localStorage.getItem(LS_USER_ID);
+  if (savedId) {
+    state.userId = savedId;
+    loadData();
+  } else {
+    // aplica tema default (girl) pro onboarding — ele muda ao escolher o gênero
+    applyTheme('girl');
+  }
+}
+
+init();
+
+// Recarrega ao voltar do background (sincronização entre aparelhos)
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
+  if (document.visibilityState === 'visible' && state.userId) {
     loadData();
   }
 });

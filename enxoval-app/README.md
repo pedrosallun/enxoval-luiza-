@@ -1,152 +1,136 @@
-# 👶💕 Enxoval da Luiza
+# 👶 Enxoval · Controle de Compras (v2)
 
-Sistema de controle de compras do enxoval com sincronização em nuvem. Os dados ficam salvos no banco de dados — você pode acessar de qualquer dispositivo (celular, computador) e nunca perde nada.
+Sistema multi-usuário para controlar compras de enxoval de bebê. Cada conta cria automaticamente a lista de ~110 itens, adaptada ao gênero escolhido (menino 💙, menina 💕 ou surpresa 🌿), e sincroniza na nuvem entre dispositivos.
+
+Originalmente criado para a **Luiza** — generalizado na v2 para qualquer bebê, com versão masculina, feminina e neutra.
 
 ## 🏗️ Arquitetura
 
-- **Frontend**: HTML/CSS/JS puro (sem framework, carrega em milissegundos)
+- **Frontend**: HTML/CSS/JS puro, sem framework (carrega em milissegundos)
 - **Backend**: Vercel Serverless Functions (Node.js)
 - **Banco de dados**: Supabase (PostgreSQL)
 - **Hosting**: Vercel (grátis pra uso pessoal)
 
+## ✨ O que mudou na v2
+
+- 🆕 **Sistema de contas** — cada bebê tem sua própria lista
+- 🆕 **Onboarding em 2 steps** — nome do bebê + escolha de gênero
+- 🆕 **Lista automática** — ao criar a conta, gera ~110 itens baseados no gênero
+- 🆕 **3 temas visuais** — rosa/feminino, azul/masculino, verde/neutro
+- 🆕 **Itens por categoria** — agrupados dentro de cada tamanho (Body, Macacão, etc.)
+- 🆕 **Menu lateral** — com export CSV, reset, logout e troca de tema
+- 🆕 **Código de acesso** — login em outro aparelho via código `u_xxxxxxxxx`
+- 🆕 **Multi-tenancy** — toda API aceita `x-user-id` e isola os dados
+
 ## 📋 Estrutura do projeto
 
 ```
-enxoval-luiza/
-├── api/                    # Backend serverless (Vercel Functions)
-│   ├── data.js            # GET todos os dados
-│   ├── items.js           # POST/PATCH/DELETE items
-│   ├── preferences.js     # PATCH preferências
-│   └── reset.js           # POST reset completo
-├── public/                 # Frontend estático
-│   ├── index.html         # Interface principal
-│   ├── app.js             # Lógica do cliente
-│   └── manifest.json      # PWA manifest
+enxoval-app/
+├── api/                        # Backend serverless
+│   ├── account.js              # 🆕 criar/buscar/atualizar/deletar conta
+│   ├── data.js                 # GET dados do usuário (filtrado por x-user-id)
+│   ├── items.js                # POST/PATCH/DELETE itens do usuário
+│   ├── preferences.js          # PATCH preferências do usuário
+│   └── reset.js                # POST reset do progresso do usuário
+├── public/
+│   ├── index.html              # UI + onboarding + menu (temas por gênero)
+│   ├── app.js                  # Lógica cliente (auth + optimistic updates)
+│   └── manifest.json           # PWA
 ├── sql/
-│   └── schema.sql         # Schema do banco + seed de 112 itens
+│   ├── schema.sql              # v1 (original, linha única)
+│   └── schema_v2.sql           # 🆕 v2 com users + templates + multi-tenancy
 ├── package.json
 ├── vercel.json
-├── .env.example
 └── README.md
 ```
 
+## 🧭 Versões masculina vs feminina
+
+| Categoria | Feminino 💕 | Masculino 💙 | Neutro 🌿 |
+|---|---|---|---|
+| Parte de cima | Blusinha, camiseta, bata | Camiseta, polo, camisa social | Camiseta |
+| Parte de baixo | Shorts, saia, jardineira | Bermuda, jogger, jardineira | Calça / shorts |
+| Vestidos | 3+ por tamanho | — | — |
+| Acessórios | Meia-calça, lacinhos | Suspensório, gravata borboleta | Neutros |
+| Conjunto especial | — | Conjunto esportivo | — |
+| **Itens neutros comuns** | bodies, macacões, pijamas, meias, sapatinhos, casaco, jaqueta, gorrinho, chapéu — **para todos** | | |
+
 ## 🚀 Passo a passo do deploy
 
-### 1️⃣ Criar o banco de dados no Supabase
+### 1️⃣ Criar o banco no Supabase
 
-1. Acesse [https://supabase.com](https://supabase.com) e faça login (você já tem conta pro PRØ Academy).
-2. Clique em **New Project**:
-   - Nome: `enxoval-luiza`
-   - Database Password: crie uma senha forte (salve em algum lugar)
-   - Region: **South America (São Paulo)**
-3. Aguarde ~2 minutos até o projeto estar pronto.
-4. No menu lateral, vá em **SQL Editor** → **New query**.
-5. Abra o arquivo `sql/schema.sql` deste repositório, copie TODO o conteúdo e cole no editor.
-6. Clique em **Run** (ou Ctrl+Enter). Vai aparecer "Success. No rows returned".
-7. Confirme que deu certo: vá em **Table Editor** no menu lateral — você deve ver 3 tabelas (`sizes`, `items`, `preferences`).
+1. Acesse [https://supabase.com](https://supabase.com) e faça login.
+2. **New Project** → escolha região **South America (São Paulo)**.
+3. Quando estiver pronto, vá em **SQL Editor** → **New query**.
+4. Copie TODO o conteúdo de `sql/schema_v2.sql` e cole no editor.
+5. Clique em **Run**. Deve aparecer "Success".
+6. Confira em **Table Editor** que existem as tabelas: `users`, `sizes`, `items`, `preferences`, `item_templates`.
 
-### 2️⃣ Pegar as credenciais do Supabase
+> ⚠️ Se você já tem um banco v1 rodando, o `schema_v2.sql` é idempotente e adiciona as colunas/tabelas novas sem quebrar nada. Os itens antigos ficam órfãos (sem `user_id`) — dá pra deletar depois.
 
-1. No painel do Supabase, vá em **Project Settings** (ícone de engrenagem) → **API**.
-2. Copie e guarde esses dois valores (vai precisar no passo 4):
-   - **Project URL** (algo tipo `https://xxxxxxxx.supabase.co`)
-   - **service_role** secret (clique em "Reveal" — é uma string longa começando com `eyJ...`)
+### 2️⃣ Pegar credenciais do Supabase
 
-> ⚠️ **IMPORTANTE**: Use a **service_role key**, NÃO a anon key. A service role tem permissão de escrita no banco.
+1. **Project Settings → API**.
+2. Copie:
+   - **Project URL** (`https://xxxxxxxx.supabase.co`)
+   - **service_role** secret (clique em "Reveal" — começa com `eyJ...`)
 
-### 3️⃣ Subir o código para o GitHub
+> ⚠️ Use a **service_role key**, não a anon key.
 
-Abra o terminal e rode:
+### 3️⃣ Deploy no Vercel
 
-```bash
-# Dentro da pasta do projeto
-git init
-git add .
-git commit -m "Initial commit: sistema enxoval Luiza"
-git branch -M main
-git remote add origin https://github.com/pedrosallun/enxoval-luiza-.git
-git push -u origin main
-```
+1. Faça push desse repo no GitHub (se ainda não fez).
+2. Acesse [https://vercel.com](https://vercel.com) → **Add New → Project**.
+3. Importe o repositório.
+4. Em **Environment Variables**:
+   - `SUPABASE_URL` = o Project URL
+   - `SUPABASE_SERVICE_KEY` = a service_role key
+5. Clique em **Deploy**.
 
-Se pedir autenticação, use seu token de acesso do GitHub (não a senha).
+### 4️⃣ Usar
 
-### 4️⃣ Deploy no Vercel
+1. Abra a URL do Vercel.
+2. Primeira vez: preencha o nome do bebê + gênero → lista criada automaticamente.
+3. Guarde o **código de acesso** (`u_xxxxxxxxx`) que aparece ao fim do onboarding — use ele pra abrir a conta em outro dispositivo.
+4. No celular: **Adicionar à tela inicial** (iOS Safari ou Chrome Android) pra instalar como app.
 
-1. Acesse [https://vercel.com](https://vercel.com) e faça login com sua conta do GitHub.
-2. Clique em **Add New → Project**.
-3. Importe o repositório **enxoval-luiza-**.
-4. Na tela de configuração:
-   - **Framework Preset**: Other (vai detectar automático)
-   - **Root Directory**: `./` (deixe padrão)
-   - **Build Command**: deixe vazio
-   - **Output Directory**: deixe vazio
-5. Em **Environment Variables**, adicione as duas variáveis do Supabase:
-   - `SUPABASE_URL` = o Project URL que você copiou
-   - `SUPABASE_SERVICE_KEY` = a service_role key que você copiou
-6. Clique em **Deploy**.
-7. Aguarde ~30 segundos. Quando terminar, o Vercel te dá uma URL (algo tipo `enxoval-luiza.vercel.app`).
-
-### 5️⃣ Testar
-
-Abra a URL do Vercel no celular e no computador. Marque um item em um dispositivo e abra no outro — deve aparecer atualizado! 💕
-
-### 6️⃣ Instalar como app no celular (opcional mas recomendado)
-
-**iPhone:**
-1. Abra a URL no Safari
-2. Toque no botão de compartilhar (quadrado com seta pra cima)
-3. **Adicionar à Tela de Início**
-4. Pronto — tem um ícone na sua home
-
-**Android:**
-1. Abra a URL no Chrome
-2. Menu (3 pontinhos) → **Adicionar à tela inicial**
-
-## 🔧 Desenvolvimento local (opcional)
-
-Se quiser rodar localmente pra testar mudanças antes de deployar:
+## 🔧 Desenvolvimento local
 
 ```bash
-# Instalar dependências
 npm install
-
-# Instalar Vercel CLI (uma vez só)
 npm install -g vercel
-
-# Criar arquivo .env com suas credenciais
-cp .env.example .env
-# (edite o .env e preencha)
-
-# Rodar localmente
-vercel dev
+cp .env.example .env   # preencha SUPABASE_URL e SUPABASE_SERVICE_KEY
+vercel dev             # http://localhost:3000
 ```
 
-Acesse `http://localhost:3000`.
+## 🔑 Como funciona o multi-tenancy
 
-## 💾 Backup do banco
+- Cada conta recebe um `id` tipo `u_k3p2xy9ab` (gerado no backend, não é criptográfico).
+- O frontend guarda esse id em `localStorage` e envia em todas as requisições como `x-user-id`.
+- Todas as queries do backend filtram por `user_id`, então não há cross-talk entre contas.
+- Quem tiver o código de acesso tem acesso total à conta — pense nele como um link não-adivinhável.
 
-O Supabase já faz backup automático do plano gratuito (retenção de 7 dias). Pra backup manual, use o botão **Exportar CSV** dentro do app.
-
-Pra backup completo do banco:
-1. Supabase → Database → Backups
-2. Ou no SQL Editor: `SELECT * FROM items;` e exporte o resultado
+Se quiser tornar mais seguro no futuro: adicionar email+senha usando Supabase Auth, ou assinar o user_id com JWT.
 
 ## 🎨 Funcionalidades
 
-- ✅ 112 itens do enxoval pré-cadastrados, organizados por tamanho (NB, 3M, 6M, 9M, 12M)
-- ✅ Checkbox pra marcar compras prontas
-- ✅ Contador de peças compradas vs meta
-- ✅ Barra de progresso geral + por tamanho
+- ✅ **Onboarding** em 2 steps (nome + gênero)
+- ✅ **Lista automática** de ~110 itens por conta, baseada em template
+- ✅ **3 temas visuais** com tipografia elegante (Inter + Fraunces)
+- ✅ **Categorização** de itens dentro de cada tamanho
+- ✅ Checkbox pra marcar compras
+- ✅ Contador de peças + barra de progresso (geral e por tamanho)
 - ✅ Filtros: todos / faltando / em andamento / completos
-- ✅ Adicionar itens personalizados em qualquer tamanho
+- ✅ Adicionar itens personalizados
 - ✅ Remover itens
 - ✅ Sincronização em tempo real entre dispositivos
-- ✅ Exportação CSV pra Excel/Sheets
-- ✅ Reset completo
-- ✅ Otimizado pra mobile (PWA — instala como app)
+- ✅ Exportação CSV (com categoria)
+- ✅ Reset completo (zera progresso, preserva conta)
+- ✅ Menu lateral com troca de tema
+- ✅ Otimizado pra mobile (PWA)
 
-## 💡 Feito com carinho para a Luiza 💕
+## 💡 Feito com carinho 💕
 
 ---
 
-**Dúvidas sobre deploy?** Chama o Pedro Sallun ou a Julia.
+**Dúvidas sobre deploy?** Chama o Pedro Sallun.
